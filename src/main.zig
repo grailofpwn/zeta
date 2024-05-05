@@ -50,26 +50,10 @@ pub fn main() !void {
 }
 
 fn run(gpa: std.mem.Allocator, src: [:0]const u8, flags: Flags) !void {
-    _ = src;
-
-    var chunk: Chunk = .{};
-    defer chunk.deinit(gpa);
-
     var vm = try Vm.init(gpa, flags);
     defer vm.deinit();
 
-    const constant = try chunk.addConstant(gpa, .{ .float = 1.2 });
-    const constant_1 = try chunk.addConstant(gpa, .{ .float = 2 });
-    try chunk.appendInstruction(gpa, .{ .load = .{ .dest = @enumFromInt(0), .src = constant } }, 123);
-    try chunk.appendInstruction(gpa, .{ .load = .{ .dest = @enumFromInt(5), .src = constant_1 } }, 123);
-    try chunk.appendInstruction(gpa, .{ .negate = .{ .dest = @enumFromInt(1), .src = @enumFromInt(0) } }, 126);
-    try chunk.appendInstruction(gpa, .{ .div = .{ .dest = @enumFromInt(2), .lhs = @enumFromInt(1), .rhs = @enumFromInt(5) } }, 129);
-    try chunk.appendInstruction(gpa, Instruction.ret, 123);
-
-    try vm.interpret(&chunk);
-
-    std.debug.print("{}\n", .{chunk});
-    std.debug.print("{any}\n", .{vm.value_stack.items});
+    try vm.interpret(src);
 }
 
 pub const std_options = .{

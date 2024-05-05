@@ -22,10 +22,10 @@ pub fn deinit(vm: *Vm) void {
     vm.value_stack.deinit(vm.gpa);
 }
 
-pub fn interpret(vm: *Vm, chunk: *Chunk) !void {
-    vm.chunk = chunk;
+pub fn interpret(vm: *Vm, src: [:0]const u8) !void {
+    _ = vm;
 
-    try vm.run();
+    try compile(src);
 }
 
 fn run(vm: *Vm) !void {
@@ -90,6 +90,7 @@ const Value = @import("value.zig").Value;
 const Instruction = @import("instruction.zig").Instruction;
 
 const Chunk = @import("Chunk.zig");
+const compile = @import("compiler.zig").compile;
 
 const Vm = @This();
 const Flags = @import("main.zig").Flags;
