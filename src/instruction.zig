@@ -1,7 +1,8 @@
-pub const Register = enum(u8) { _ };
-
 pub const Instruction = union(enum(u8)) {
     load: Assignment,
+    eq: Binary,
+    lt: Binary,
+    le: Binary,
     add: Binary,
     sub: Binary,
     mul: Binary,
@@ -9,11 +10,11 @@ pub const Instruction = union(enum(u8)) {
     negate: Unary,
     ret: void,
 
-    pub const Binary = struct { dest: Register, lhs: Register, rhs: Register };
-    const Assignment = struct { dest: Register, src: u16 };
-    const Unary = struct { dest: Register, src: Register };
+    pub const Binary = struct { dest: u8, lhs: u8, rhs: u8 };
+    const Assignment = struct { dest: u8, src: u16 };
+    const Unary = struct { dest: u8, src: u8 };
 
-    const Opcode = @typeInfo(Instruction).Union.tag_type.?;
+    pub const Opcode = @typeInfo(Instruction).Union.tag_type.?;
 
     pub fn decode(code: []const u8) !Instruction {
         const opcode = std.meta.intToEnum(Opcode, code[0]) catch return error.InvalidOpcode;
@@ -25,17 +26,17 @@ pub const Instruction = union(enum(u8)) {
                 switch (@typeInfo(Instruction).Union.fields[@intFromEnum(tag)].type) {
                     void => {},
                     Assignment => .{
-                        .dest = @enumFromInt(code[1]),
+                        .dest = code[1],
                         .src = std.mem.readInt(u16, code[2..4], .little),
                     },
                     Binary => .{
-                        .dest = @enumFromInt(code[1]),
-                        .lhs = @enumFromInt(code[2]),
-                        .rhs = @enumFromInt(code[3]),
+                        .dest = code[1],
+                        .lhs = code[2],
+                        .rhs = code[3],
                     },
                     Unary => .{
-                        .dest = @enumFromInt(code[1]),
-                        .src = @enumFromInt(code[2]),
+                        .dest = code[1],
+                        .src = code[2],
                     },
                     else => unreachable,
                 },
@@ -51,17 +52,17 @@ pub const Instruction = union(enum(u8)) {
             inline else => |args| switch (@TypeOf(args)) {
                 void => @memset(bytes[1..4], 0),
                 Assignment => {
-                    bytes[1] = @intFromEnum(args.dest);
+                    bytes[1] = args.dest;
                     std.mem.writeInt(u16, bytes[2..4], args.src, .little);
                 },
                 Binary => {
-                    bytes[1] = @intFromEnum(args.dest);
-                    bytes[2] = @intFromEnum(args.lhs);
-                    bytes[3] = @intFromEnum(args.rhs);
+                    bytes[1] = args.dest;
+                    bytes[2] = args.lhs;
+                    bytes[3] = args.rhs;
                 },
                 Unary => {
-                    bytes[1] = @intFromEnum(args.dest);
-                    bytes[2] = @intFromEnum(args.src);
+                    bytes[1] = args.dest;
+                    bytes[2] = args.src;
                 },
                 else => unreachable,
             },
@@ -108,17 +109,17 @@ pub const Instruction = union(enum(u8)) {
                 inline else => |args| switch (@TypeOf(args)) {
                     void => {},
                     Assignment => try writer.print("{d: ^3} {d: ^3}", .{
-                        @intFromEnum(args.dest),
+                        args.dest,
                         args.src,
                     }),
                     Binary => try writer.print("{d: ^3} {d: ^3} {d: ^3}", .{
-                        @intFromEnum(args.dest),
-                        @intFromEnum(args.lhs),
-                        @intFromEnum(args.rhs),
+                        args.dest,
+                        args.lhs,
+                        args.rhs,
                     }),
                     Unary => try writer.print("{d: ^3} {d: ^3}", .{
-                        @intFromEnum(args.dest),
-                        @intFromEnum(args.src),
+                        args.dest,
+                        args.src,
                     }),
                     else => unreachable,
                 },

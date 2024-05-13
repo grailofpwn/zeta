@@ -1,4 +1,3 @@
-//
 pub const Token = struct {
     tag: Tag,
     loc: Loc,
@@ -16,7 +15,7 @@ pub const Token = struct {
         .{ "fn", .keyword_fn },
         .{ "for", .keyword_for },
         .{ "if", .keyword_if },
-        .{ "null", .keywork_null },
+        .{ "null", .keyword_null },
         .{ "or", .keyword_or },
         .{ "print", .keyword_print },
         .{ "return", .keyword_return },
@@ -58,7 +57,7 @@ pub const Token = struct {
         keyword_fn,
         keyword_for,
         keyword_if,
-        keywork_null,
+        keyword_null,
         keyword_or,
         keyword_print,
         keyword_return,
@@ -69,6 +68,10 @@ pub const Token = struct {
         eof,
         invalid,
     };
+
+    pub fn value(token: Token, src: []const u8) []const u8 {
+        return src[token.loc.start..token.loc.end];
+    }
 
     pub fn fmtError(token: Token, src: []const u8) FmtError {
         return FmtError{
