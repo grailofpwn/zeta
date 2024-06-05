@@ -8,6 +8,7 @@ pub const Instruction = union(enum(u8)) {
     mul: Binary,
     div: Binary,
     negate: Unary,
+    print: u8,
     ret: void,
 
     pub const Binary = struct { dest: u8, lhs: u8, rhs: u8 };
@@ -38,6 +39,7 @@ pub const Instruction = union(enum(u8)) {
                         .dest = code[1],
                         .src = code[2],
                     },
+                    u8 => code[1],
                     else => unreachable,
                 },
             ),
@@ -64,6 +66,7 @@ pub const Instruction = union(enum(u8)) {
                     bytes[1] = args.dest;
                     bytes[2] = args.src;
                 },
+                u8 => bytes[1] = args,
                 else => unreachable,
             },
         }
@@ -121,6 +124,7 @@ pub const Instruction = union(enum(u8)) {
                         args.dest,
                         args.src,
                     }),
+                    u8 => try writer.print("{d: ^3}", .{args}),
                     else => unreachable,
                 },
             }

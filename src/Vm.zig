@@ -1,5 +1,9 @@
 value_stack: std.ArrayListUnmanaged(Value) = .{},
 
+strings: StringInternPool = .{},
+
+objects: ?*Object = null,
+
 chunk: *Chunk,
 ip: u32 = 0,
 
@@ -20,6 +24,14 @@ pub fn init(gpa: std.mem.Allocator, flags: Flags) !Vm {
 
 pub fn deinit(vm: *Vm) void {
     vm.value_stack.deinit(vm.gpa);
+    vm.strings.deinit(vm.gpa);
+
+    var object = vm.objects;
+    while (object) |obj| {
+        const next = obj.next;
+        obj.destroy(vm);
+        object = next;
+    }
 }
 
 pub fn interpret(vm: *Vm, src: [:0]const u8) !void {
@@ -44,6 +56,7 @@ fn run(vm: *Vm, result: u8) !void {
 
         switch (instruction) {
             .ret => std.log.info("returning: {any}", .{vm.value_stack.items[result]}),
+            .print => |register| std.log.info("{}", .{vm.value_stack.items[register]}),
             .add => |args| try vm.binaryOp(.add, args),
             .sub => |args| try vm.binaryOp(.sub, args),
             .mul => |args| try vm.binaryOp(.mul, args),
@@ -91,6 +104,7 @@ pub fn binaryOp(vm: *Vm, op: BinaryOperator, args: Instruction.Binary) !void {
         },
         .add => switch (lhs) {
             .float => dest.* = .{ .float = lhs.float + rhs.float },
+            .object => dest.* = .{ .object = try Object.String.concat(lhs.object, rhs.object) },
             else => unreachable, // TODO: runtime error
         },
 
@@ -118,7 +132,11 @@ pub fn runtimeError(vm: *Vm, comptime message: []const u8, args: anytype) !void 
     return error.RuntimeError;
 }
 
+const StringInternPool = @import("StringInternPool.zig");
+
 const Value = @import("value.zig").Value;
+const Object = @import("Object.zig");
+
 const Instruction = @import("instruction.zig").Instruction;
 
 const Chunk = @import("Chunk.zig");

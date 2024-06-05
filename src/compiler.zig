@@ -3,13 +3,16 @@ pub fn compile(vm: *Vm, src: [:0]const u8, chunk: *Chunk) !u8 {
     var parser = Parser.init(vm, &compiler, src);
 
     parser.advance();
-    const result = try parser.expression();
-    parser.consume(.eof, "Expect end of expression.");
+
+    while (!parser.match(.eof)) {
+        parser.declaration();
+    }
+
     try parser.endCompiler();
 
     if (parser.had_error) return error.CompileError;
 
-    return result;
+    return 0; // TODO: implement when functions work
 }
 
 const Compiler = struct {
@@ -120,6 +123,49 @@ const Parser = struct {
         return try parser.parsePrecedence(.assignment);
     }
 
+    fn expressionStatement(parser: *Parser) !void {
+        _ = try parser.expression(); // TODO: return when functions work
+        parser.consume(.semicolon, "Expect ';' after expression.");
+    }
+
+    fn printStatement(parser: *Parser) !void {
+        const register = try parser.expression();
+        parser.consume(.semicolon, "Expect ';' after value.");
+        try parser.compiler.chunk.appendInstruction(
+            parser.vm.gpa,
+            .{ .print = register },
+            parser.previous.line,
+        );
+    }
+
+    fn synchronize(parser: *Parser) void {
+        parser.panic_mode = false;
+
+        while (parser.current.tag != .eof) {
+            if (parser.previous.tag == .semicolon) return;
+            switch (parser.current.tag) {
+                .keyword_fn, .keyword_let, .keyword_if, .keyword_while, .keyword_print, .keyword_return => return,
+                else => {},
+            }
+
+            parser.advance();
+        }
+    }
+
+    pub fn declaration(parser: *Parser) !void {
+        try parser.statement();
+
+        if (parser.panic_mode) parser.synchronize();
+    }
+
+    pub fn statement(parser: *Parser) !void {
+        if (parser.match(.keyword_print)) {
+            try parser.printStatement();
+        } else {
+            try parser.expressionStatement();
+        }
+    }
+
     pub fn consume(parser: *Parser, tag: Token.Tag, msg: []const u8) void {
         if (parser.current.tag == tag) {
             parser.advance();
@@ -127,6 +173,12 @@ const Parser = struct {
         }
 
         parser.errAtCurrent(msg);
+    }
+
+    pub fn match(parser: *Parser, tag: Token.Tag) bool {
+        if (parser.current.tag != tag) return false;
+        parser.advance();
+        return true;
     }
 
     pub fn endCompiler(parser: *Parser) !void {
@@ -141,6 +193,7 @@ const Parser = struct {
         _ = can_assign;
         return switch (tag) {
             .minus, .bang => try parser.unary(),
+            .string_literal => try parser.string(),
             .number_literal => try parser.number(),
             .keyword_null => try parser.literal(),
             .l_paren => try parser.grouping(),
@@ -267,6 +320,22 @@ const Parser = struct {
         return parser.compiler.first_free_register - 1;
     }
 
+    fn string(parser: *Parser) !u8 {
+        const value = Object.String.copy(parser.previous.value(parser.scanner.src));
+
+        try parser.compiler.chunk.appendInstruction(
+            parser.vm.gpa,
+            .{
+                .load = .{
+                    .dest = parser.compiler.first_free_register,
+                    .src = try parser.compiler.chunk.addConstant(value),
+                },
+            },
+        );
+        parser.compiler.first_free_register += 1;
+        return parser.compiler.first_free_register - 1;
+    }
+
     fn unary(parser: *Parser) !u8 {
         const token_tag = parser.previous.tag;
 
@@ -319,6 +388,8 @@ const Parser = struct {
         parser.had_error = true;
     }
 };
+
+const Object = @import("Object.zig");
 
 const Scanner = @import("scanner.zig").Scanner;
 const Token = @import("scanner.zig").Token;
